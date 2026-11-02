@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sorteador de roteiro</title>
+<style>
+:root{--bg:#efeafc;--ink:#1b1340;--mute:#5b5480;--card:#fff;--line:#d9d1f3;--c1:#ff5d8f;--c2:#14b8a6;--c3:#eab308;--c4:#7c5cff;--on:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#150f33;--ink:#f1edff;--mute:#a9a2cf;--card:#211a4a;--line:#352c6b;--c1:#ff7aa5;--c2:#2dd4bf;--c3:#facc15;--c4:#9d86ff;--on:#150f33}}
+:root[data-theme="dark"]{--bg:#150f33;--ink:#f1edff;--mute:#a9a2cf;--card:#211a4a;--line:#352c6b;--c1:#ff7aa5;--c2:#2dd4bf;--c3:#facc15;--c4:#9d86ff;--on:#150f33}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'Trebuchet MS','Segoe UI',Arial,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 18px 70px}
+h1{font:800 clamp(2.1rem,7vw,3.6rem)/1 'Arial Rounded MT Bold','Trebuchet MS',sans-serif;margin:0 0 10px;letter-spacing:-.03em}
+.sub{color:var(--mute);margin:0 0 22px;max-width:50ch}
+.modes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.chip{border:2px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:99px;font:inherit;font-size:.9rem;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.reels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.reels{grid-template-columns:1fr}}
+.reel{background:var(--card);border:2px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.reel .bar{height:8px}
+.reel .body{padding:14px 16px 12px;flex:1;display:flex;flex-direction:column;gap:8px}
+.reel h2{margin:0;font-size:.95rem;color:var(--mute);font-weight:700}
+.reel .txt{font-size:1.2rem;font-weight:700;line-height:1.3;min-height:4.2em}
+.reel .txt.spin{opacity:.55;filter:blur(.6px)}
+.row{display:flex;gap:8px}
+.mini{border:1px solid var(--line);background:none;color:var(--ink);border-radius:8px;padding:5px 10px;font:inherit;font-size:.8rem;cursor:pointer}
+.mini[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.go{margin:20px 0 10px;width:100%;border:0;border-radius:14px;padding:18px;font:800 1.2rem 'Arial Rounded MT Bold','Trebuchet MS',sans-serif;background:var(--c1);color:var(--on);cursor:pointer}
+.go:active{transform:scale(.99)}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:28px}
+details{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px 16px}
+summary{cursor:pointer;font-weight:700}
+.add{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;margin-top:12px}
+@media(max-width:640px){.add{grid-template-columns:1fr}}
+input,select{padding:9px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;font:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--c4);outline-offset:2px}
+.msg{color:var(--mute);font-size:.85rem;min-height:1.2em}
+.mylist{margin:10px 0 0;padding:0;list-style:none;font-size:.9rem}
+.mylist li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+@media(prefers-reduced-motion:reduce){.go:active{transform:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>Sorteador de roteiro</h1>
+<p class="sub">Sem ideia do que fazer? Gire e receba um programa, uma comida, um desafio e uma reviravolta. Trave o que gostar e sorteie o resto.</p>
+
+<div class="modes" id="modes" role="group" aria-label="Tipo de roteiro"></div>
+<div class="reels" id="reels"></div>
+<button class="go" id="go" type="button">Sortear roteiro</button>
+<div class="tools"><button class="chip" id="copy" type="button">Copiar roteiro</button><span class="msg" id="msg" aria-live="polite"></span></div>
+
+<details>
+<summary>Adicionar ideias suas</summary>
+<div class="add">
+<select id="addKey" aria-label="Categoria"></select>
+<input id="addTxt" maxlength="120" placeholder="Ex: Ir ao mirante de bicicleta" aria-label="Sua ideia">
+<button class="chip" id="addBtn" type="button">Adicionar</button>
+</div>
+<ul class="mylist" id="mylist"></ul>
+</details>
+</main>
+<script>
+const A = 'ocvz';
+const META = {
+  programa: ['O programa', 'var(--c1)'],
+  comida: ['Pra comer e beber', 'var(--c2)'],
+  desafio: ['O desafio', 'var(--c3)'],
+  twist: ['A reviravolta', 'var(--c4)']
+};
+const MODES = [['t','Tudo'],['o','Pra sair'],['c','Em casa'],['v','Viagem relâmpago'],['z','Grana zero']];
+const POOLS = {
+  programa: [
+    ['Ver o pôr do sol no ponto mais alto que você achar','oz'],
+    ['Cinema com o filme de pior nota que estiver em cartaz','o'],
+    ['Feira ou brechó: comprar uma coisa inútil e linda','o'],
+    ['Pedalar até um bairro onde você nunca foi','oz'],
+    ['Boliche ou fliperama, quem perder paga a rodada','o'],
+    ['Piquenique na praça com pão, queijo e fruta','oz'],
+    ['Show ao vivo, o primeiro que você descobrir','o'],
+    ['Sebo de livros: cada um escolhe um livro para o outro','o'],
+    ['Caminhada sem destino: virar à direita em toda esquina','oz'],
+    ['Fotografar 10 coisas amarelas pela rua','oz'],
+    ['Maratona de uma série que nenhum dos dois viu','c'],
+    ['Noite de jogos de tabuleiro com placar e troféu','c'],
+    ['Quebra-cabeça de mil peças com trilha sonora','c'],
+    ['Cozinhar uma receita de outro país, do zero','c'],
+    ['Cabana de lençóis com cinema dentro','cz'],
+    ['Karaokê na sala com microfone de escova','cz'],
+    ['Arrumar o armário e vender o que sobrar','cz'],
+    ['Noite de spa caseiro, com máscara e tudo','c'],
+    ['Gravar um vídeo bobo para o Reels, sem editar','cz'],
+    ['Bate-volta de 100 km até uma cidade pequena','v'],
+    ['Uma noite na cidade vizinha, com mala de mão','v'],
+    ['Trilha que termina em cachoeira','vz'],
+    ['Pegar o primeiro ônibus que sair e descer na terceira cidade','v'],
+    ['Road trip com playlist sorteada','v'],
+    ['Vinícola ou cervejaria artesanal de interior','v'],
+    ['Fim de semana num destino achado nas milhas','v'],
+    ['Mirante, banco de praça e uma hora sem celular','oz'],
+    ['Biblioteca ou centro cultural com entrada grátis','oz']
+  ],
+  comida: [
+    ['Pastel de feira com caldo de cana','o'],
+    ['Hambúrguer artesanal que você nunca provou','o'],
+    ['Sorvete: pedir o sabor mais estranho do cardápio','o'],
+    ['Café de padaria com pão na chapa','o'],
+    ['Pizza com cada metade escolhida no dado','oc'],
+    ['Comida japonesa pedindo só o que você não conhece','o'],
+    ['Marmita improvisada com o que tiver na geladeira','cz'],
+    ['Pão com ovo na chapa, feito em casa','cz'],
+    ['Pipoca e suco gelado levados na mochila','oz'],
+    ['Fruta da feira dividida na praça','oz'],
+    ['Chocolate quente com pão de queijo','oc'],
+    ['Churrasco improvisado, nem que seja de espeto na varanda','cv'],
+    ['O prato típico da cidade onde você for','v'],
+    ['Lanche de beira de estrada, o mais cheio ganha','v'],
+    ['Sobremesa antes do prato principal','oc']
+  ],
+  desafio: [
+    ['Sem celular na primeira hora','ocvz'],
+    ['Cada um tira 5 fotos e vota na melhor','ocvz'],
+    ['Só vale comentar o que achou de bom','ocvz'],
+    ['Descobrir uma dica local com um desconhecido','ov'],
+    ['Gastar no máximo R$ 50 no total','ov'],
+    ['Gravar 15 segundos para Reels ou TikTok','ocvz'],
+    ['Decidir o próximo passo na moeda','ocvz'],
+    ['Usar só o transporte que passar primeiro','ov'],
+    ['Todo mundo usa um acessório maluco','ocv'],
+    ['Ninguém olha mapa: tudo se pergunta','ov'],
+    ['Comentar cada lugar como crítico gastronômico','ocv'],
+    ['Falar só em rima durante 10 minutos','ocvz']
+  ],
+  twist: [
+    ['Se chover, vão do mesmo jeito, de capa','ocvz'],
+    ['No meio do caminho, o outro assume e muda o plano','ocvz'],
+    ['10 minutos só observando as pessoas','ocvz'],
+    ['Escrever um bilhete para você abrir daqui a um ano','ocvz'],
+    ['Comprar uma lembrança de até R$ 10','ov'],
+    ['Ligar para alguém que você não fala há tempos','ocvz'],
+    ['Voltar por um caminho diferente da ida','ovz'],
+    ['Dormir sem despertador no dia seguinte','ocvz'],
+    ['Escolher a música que toca na volta, sem vetos','ocvz'],
+    ['Tirar uma foto do mesmo lugar no começo e no fim','ocvz'],
+    ['Deixar uma boa avaliação para o lugar que mais gostou','ov']
+  ]
+};
+const $ = (id) => document.getElementById(id);
+const KEYS = Object.keys(META);
+let mode = 't', locks = {}, current = {}, custom = [], busy = false;
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+try { custom = JSON.parse(localStorage.getItem('roteiro_custom') || '[]') || []; } catch (e) { custom = []; }
+const save = () => { try { localStorage.setItem('roteiro_custom', JSON.stringify(custom)); } catch (e) {} };
+
+function pool(k) {
+  let p = POOLS[k].filter((i) => mode === 't' || i[1].includes(mode)).map((i) => i[0]);
+  if (!p.length) p = POOLS[k].map((i) => i[0]);
+  return p.concat(custom.filter((c) => c.k === k).map((c) => c.t));
+}
+const pick = (arr, not) => { let t; let n = 0; do { t = arr[Math.floor(Math.random() * arr.length)]; n++; } while (t === not && arr.length > 1 && n < 10); return t; };
+
+function build() {
+  $('modes').textContent = '';
+  MODES.forEach(([m, l]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = l; b.setAttribute('aria-pressed', m === mode);
+    b.onclick = () => { mode = m; build(); spinAll(); };
+    $('modes').appendChild(b);
+  });
+  const R = $('reels'); R.textContent = '';
+  KEYS.forEach((k) => {
+    const d = document.createElement('div'); d.className = 'reel';
+    const bar = document.createElement('div'); bar.className = 'bar'; bar.style.background = META[k][1];
+    const body = document.createElement('div'); body.className = 'body';
+    const h = document.createElement('h2'); h.textContent = META[k][0];
+    const t = document.createElement('div'); t.className = 'txt'; t.id = 'txt-' + k; t.textContent = current[k] || 'Toque em sortear';
+    const row = document.createElement('div'); row.className = 'row';
+    const re = document.createElement('button'); re.type = 'button'; re.className = 'mini'; re.textContent = 'Outra';
+    re.onclick = () => spin([k], true);
+    const lk = document.createElement('button'); lk.type = 'button'; lk.className = 'mini'; lk.textContent = locks[k] ? 'Travado' : 'Travar'; lk.setAttribute('aria-pressed', !!locks[k]);
+    lk.onclick = () => { locks[k] = !locks[k]; lk.textContent = locks[k] ? 'Travado' : 'Travar'; lk.setAttribute('aria-pressed', !!locks[k]); };
+    row.append(re, lk); body.append(h, t, row); d.append(bar, body); R.appendChild(d);
+  });
+  const sel = $('addKey'); if (!sel.options.length) KEYS.forEach((k) => { const o = document.createElement('option'); o.value = k; o.textContent = META[k][0]; sel.appendChild(o); });
+  renderMine();
+}
+
+function spin(keys, force) {
+  keys.forEach((k, idx) => {
+    if (locks[k] && !force) return;
+    const el = $('txt-' + k), p = pool(k), final = pick(p, current[k]);
+    if (reduce) { current[k] = final; el.textContent = final; return; }
+    el.classList.add('spin');
+    const end = Date.now() + 600 + idx * 250;
+    const iv = setInterval(() => {
+      if (Date.now() >= end) { clearInterval(iv); current[k] = final; el.textContent = final; el.classList.remove('spin'); return; }
+      el.textContent = pick(p);
+    }, 70);
+  });
+}
+const spinAll = () => spin(KEYS, false);
+$('go').onclick = spinAll;
+
+$('copy').onclick = async () => {
+  if (!KEYS.every((k) => current[k])) { $('msg').textContent = 'Sorteie um roteiro primeiro.'; return; }
+  const t = 'Roteiro sorteado\n' + KEYS.map((k) => META[k][0] + ': ' + current[k]).join('\n');
+  try { await navigator.clipboard.writeText(t); $('msg').textContent = 'Copiado. Agora é só mandar no WhatsApp.'; } catch (e) { $('msg').textContent = 'Não consegui copiar neste navegador.'; }
+  setTimeout(() => $('msg').textContent = '', 2500);
+};
+
+$('addBtn').onclick = () => {
+  const t = $('addTxt').value.trim(); if (!t) return;
+  custom.push({ k: $('addKey').value, t: t.slice(0, 120) }); save(); $('addTxt').value = ''; renderMine();
+};
+function renderMine() {
+  const ul = $('mylist'); ul.textContent = '';
+  custom.forEach((c, i) => {
+    const li = document.createElement('li');
+    const s = document.createElement('span'); s.textContent = META[c.k][0] + ': ' + c.t;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mini'; b.textContent = 'Remover'; b.setAttribute('aria-label', 'Remover ' + c.t);
+    b.onclick = () => { custom.splice(i, 1); save(); renderMine(); };
+    li.append(s, b); ul.appendChild(li);
+  });
+}
+build();
+</script>
+</body>
+</html>
